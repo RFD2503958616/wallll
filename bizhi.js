@@ -1,43 +1,41 @@
-// Quantumult X 脚本：拦截 Laggy Wallpaper 图片 API
-// 功能：提取 App Store 中的图片 URL，并输出到日志
+// Quantumult X 脚本：稳定获取 App Store 高清壁纸
+// 更新时间：2024 年 6 月
+// 功能：提取所有高清壁纸 URL 并输出日志
 
-const $ = $substore; // Quantumult X 提供的环境变量
+const $ = $substore;
 
+try {
 // 1. 解析 API 返回的 JSON 数据
 let body = JSON.parse($response.body);
 
-// 2. 检查是否有截图或预览图数据
-if (body.data && body.data.attributes) {
-const appData = body.data.attributes;
-const screenshotUrls = appData.screenshotUrls || [];
-const previewUrls = appData.previews || [];
-
-// 3. 合并所有图片 URL（截图 + 预览）
-const allImageUrls = [...screenshotUrls];
-previewUrls.forEach(preview => {
-if (preview.url) allImageUrls.push(preview.url);
-});
-
-// 4. 去重并过滤无效 URL
-const uniqueUrls = [...new Set(allImageUrls)].filter(url =>
-url.startsWith("http") && (url.includes(".jpg") || url.includes(".png") || url.includes(".webp"))
-);
-
-// 5. 输出到 Quantumult X 日志
-if (uniqueUrls.length > 0) {
-console.log("✅ 找到 Laggy Wallpaper 图片 URL：");
-uniqueUrls.forEach((url, index) => {
-console.log(`${index + 1}. ${url}`);
-});
-
-// 6. 可选：自动触发下载（需配合外部工具）
-// 这里只是输出 URL，实际下载可用 Python 脚本处理
-$done({body: JSON.stringify(body)});
-} else {
-console.log("️ 未找到图片 URL");
-$done({body: JSON.stringify(body)});
+// 2. 检查数据结构
+if (!body.data?.attributes) {
+console.log(" 错误：API 返回数据格式异常");
+$done({body: $response.body});
+return;
 }
+
+// 3. 提取所有图片 URL（截图 + 预览）
+const attrs = body.data.attributes;
+const imageUrls = [
+...(attrs.screenshotUrls || []),
+...(attrs.previews?.map(preview => preview.url) || [])
+].filter(url => url && /\.(jpg|png|webp)$/i.test(url));
+
+// 4. 输出结果到 Quantumult X 日志
+if (imageUrls.length > 0) {
+console.log("✅ 成功获取高清壁纸 URL：");
+imageUrls.forEach((url, index) => {
+console.log(`${index + 1}. ${url.replace(/\?.*$/, "")}`); // 去除 URL 参数
+});
 } else {
-console.log("️ API 返回数据格式不符");
-$done({body: JSON.stringify(body)});
+console.log("️ 未找到有效图片 URL");
+}
+
+// 5. 返回原始数据（避免破坏 API 结构）
+$done({body: $response.body});
+
+} catch (e) {
+console.log(` 脚本运行错误：${e.message}`);
+$done({body: $response.body});
 }
